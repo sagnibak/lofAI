@@ -1,0 +1,12 @@
+# PyCharm files
+.idea/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints
+
+# Python caches
+__pycache__/
+.ipynb_checkpoints
+
+# large data files
+audio_training/
