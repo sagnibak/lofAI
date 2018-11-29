@@ -10,3 +10,7 @@ __pycache__/
 
 # large data files
 audio_training/
+
+# massive directories
+logs/
+models/

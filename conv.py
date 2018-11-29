@@ -142,7 +142,6 @@ class ShuffleNetUnit(object):
 
             return LeakyReLU(0.1)(x)
 
-
     def _shuffle_channels(self, tensor):
         _, h, w, c = K.int_shape(tensor)
         num_ch_per_group = c // self.num_groups
