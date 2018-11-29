@@ -6,7 +6,7 @@ from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.layers import Add, BatchNormalization, Conv2D, Conv2DTranspose, Input, SeparableConv2D, \
                          MaxPool2D, AvgPool2D, Concatenate
-from keras.losses import binary_crossentropy
+from keras.losses import mse
 from keras.models import Model
 from keras.regularizers import l2
 from keras.utils import plot_model
@@ -113,8 +113,10 @@ def build_decoder():
                               first_kernel=(3, 6), first_stride=(2, 4),
                               pool_func_args={'size': (2, 4)})(decoded)  # 128 x 1024 x 8
 
-    decoded = DenseUpsampling(out_channels=2, filters=8, kernel_size=(3, 6),
+    decoded = DenseUpsampling(out_channels=8, filters=8, kernel_size=(3, 6),
                               num_layers=3)(decoded)  # 128 x 1024 x 2
+
+    decoded = Conv2D(2, (3, 3), padding='same', kernel_regularizer=l2())(decoded)
 
     return Model(z_sampled_in, decoded, name='decoder')
 
@@ -125,25 +127,24 @@ if __name__ == '__main__':
     batch_size = 5
 
     encoder, z_mean, z_log_var = build_encoder()
-    encoder_saver = WeightSaver(encoder, 'models/encoders/enc0')
+    encoder_saver = WeightSaver(encoder, 'models/encoders/enc1')
 
-    # encoder.summary()
-    # plot_model(encoder, 'model_plots/proto_enc3.png', show_shapes=True)
+    encoder.summary()
+    plot_model(encoder, 'model_plots/proto_enc4.png', show_shapes=True)
 
     decoder = build_decoder()
-    decoder_saver = WeightSaver(decoder, 'models/decoders/dec0')
+    decoder_saver = WeightSaver(decoder, 'models/decoders/dec1')
 
-    # print('========================\n'*3)
-    # decoder.summary()
-    # plot_model(decoder, 'model_plots/proto_dec1.png', show_shapes=True)
+    print('========================\n'*3)
+    decoder.summary()
+    plot_model(decoder, 'model_plots/proto_dec2.png', show_shapes=True)
 
     outs = decoder(encoder(spectral_in)[2])
     vae = Model(spectral_in, outs, name='sound_vae')
 
     def vae_loss(y_true, y_pred):
         with K.name_scope('Loss'):
-            reconstruction_loss = K.sum(binary_crossentropy(
-                                        K.flatten(y_true), K.flatten(y_pred)) * 128 * 1024)
+            reconstruction_loss = K.sum(mse(K.flatten(y_true), K.flatten(y_pred)) * 128 * 1024)
             kl_loss = 0.5 * (K.sum(K.exp(z_log_var) + K.square(z_mean) - 1 - z_log_var))
 
             return 0.05*kl_loss + 10*reconstruction_loss
@@ -162,6 +163,6 @@ if __name__ == '__main__':
                           decoder_saver
                       ],
                       validation_data=lofi_val_gen,
-                      workers=10,
+                      workers=6,
                       use_multiprocessing=True,
                       shuffle=True)

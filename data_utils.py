@@ -51,15 +51,15 @@ class LofiSequence(Sequence):
     def __len__(self):
         if not self.validation:
             return self.actual_length()
-        return 1
+        return 15
 
     def __getitem__(self, idx):
         if not self.validation:
             x = np.array([get_segment(start_idx=i * 512)
                           for i in range(idx * self.batch_size, (idx + 1) * self.batch_size)])
         else:
-            random_start = randint(0, self.actual_length())
+            random_start = randint(0, self.actual_length() - self.batch_size - 1)
             x = np.array([get_segment(start_idx=i * 512)
-                          for i in range((idx + random_start) * self.batch_size,
-                                         (idx + random_start + 1) * self.batch_size)])
+                          for i in range((random_start) * self.batch_size,
+                                         (random_start + 1) * self.batch_size)])
         return x, x
