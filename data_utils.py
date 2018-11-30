@@ -19,7 +19,7 @@ try:
     mu_law_audio = np.load('audio_training/mu_law_compressed.npy')
 except FileNotFoundError as e:
     mu_law_audio = None
-    mdct_mu_law_stereo = None
+#     mdct_mu_law_stereo = None
 raw_audio = None  # load raw audio only if necessary (lazily)
 
 
