@@ -6,6 +6,7 @@ from keras import backend as K
 from keras.callbacks import TensorBoard
 from keras.layers import Add, BatchNormalization, Conv2D, Conv2DTranspose, Input, SeparableConv2D, \
                          MaxPool2D, AvgPool2D, Concatenate
+from keras.layers.advanced_activations import LeakyReLU
 from keras.losses import mse
 from keras.models import Model
 from keras.regularizers import l2
@@ -50,56 +51,57 @@ def build_encoder():
     encoded = DenseBlock(128, (3, 3), num_layers=3,
                          first_kernel=(3, 6), first_stride=(2, 4),
                          pool_func_args={'pool_size': (3, 6), 'strides': (2, 4)})(encoded)  # 16 x 16 x 256
-    encoded = DenseBlock(256, (3, 3), num_layers=2, merge_func=Add)(encoded)
+    # encoded = DenseBlock(256, (3, 3), num_layers=2, merge_func=Add)(encoded)
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (3, 3), 'strides': (2, 2)})(encoded)  # 8 x 8 x 512
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (3, 3), 'strides': (2, 2)})(encoded)  # 4 x 4 x 768
-    encoded = DenseBlock(768, (2, 2), num_layers=3, merge_func=Add)(encoded)
+    # encoded = DenseBlock(768, (2, 2), num_layers=3, merge_func=Add)(encoded)
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (2, 2), 'strides': (2, 2)})(encoded)  # 2 x 2 x 1024
     encoded = DenseBlock(128, (1, 1), num_layers=2)(encoded)  # 2 x 2 x 1152
-    encoded = ChannelShuffle(9)(encoded)
+    # encoded = ChannelShuffle(9)(encoded)
     encoded = DenseBlock(128, (1, 1), num_layers=2)(encoded)  # 2 x 2 x 1280
-    encoded = ChannelShuffle(10)(encoded)
+    # encoded = ChannelShuffle(10)(encoded)
 
-    z_mean = GConv(4, 1280, 1280, kernel_regularizer=l2())(encoded)
-    z_log_var = GConv(4, 1280, 1280, kernel_regularizer=l2())(encoded)
+    z_mean = GConv(1, 1280, 32, kernel_regularizer=l2())(encoded)
+    z_log_var = GConv(1, 1280, 32, kernel_regularizer=l2())(encoded)
     z_sampled = Sampling('z_sampled')([z_mean, z_log_var])
 
     return Model(spectral_in, [z_mean, z_log_var, z_sampled], name='encoder'), z_mean, z_log_var
 
 
 def build_decoder():
-    z_sampled_in = Input(shape=(2, 2, 1280), name='z_sampled_in')
+    z_sampled_in = Input(shape=(2, 2, 32), name='z_sampled_in')
 
-    decoded = GConv(2, 1280, 1152, kernel_regularizer=l2())(z_sampled_in)
-    decoded = ChannelShuffle(3)(decoded)
+    decoded = GConv(1, 32, 1152, kernel_regularizer=l2())(z_sampled_in)
+    # decoded = ChannelShuffle(3)(decoded)
+    decoded = LeakyReLU(0.4)(BatchNormalization()(decoded))
     decoded = GConv(2, 1152, 1024, kernel_regularizer=l2())(decoded)  # 2 x 2 x 1024
 
     decoded = DenseUpsampling(out_channels=768, filters=512, kernel_size=(2, 2), num_layers=3,
                               first_kernel=(3, 3), first_stride=(2, 2),
                               pool_func_args={'size': (2, 2)})(decoded)  # 4 x 4 x 768
 
-    decoded = DenseUpsampling(out_channels=768, filters=384, kernel_size=(2, 2),
-                              num_layers=3)(decoded)  # 4 x 4 x 768
+    # decoded = DenseUpsampling(out_channels=768, filters=384, kernel_size=(2, 2),
+    #                           num_layers=3)(decoded)  # 4 x 4 x 768
 
     decoded = DenseUpsampling(out_channels=512, filters=384, kernel_size=(2, 2), num_layers=3,
                               first_kernel=(3, 3), first_stride=(2, 2),
                               pool_func_args={'size': (2, 2)})(decoded)  # 8 x 8 x 512
 
-    decoded = DenseUpsampling(out_channels=512, filters=256, kernel_size=(3, 3),
-                              num_layers=3)(decoded)  # 8 x 8 x 512
+    # decoded = DenseUpsampling(out_channels=512, filters=256, kernel_size=(3, 3),
+    #                           num_layers=3)(decoded)  # 8 x 8 x 512
 
     decoded = DenseUpsampling(out_channels=256, filters=256, kernel_size=(3, 3), num_layers=3,
                               first_kernel=(3, 3), first_stride=(2, 2),
                               pool_func_args={'size': (2, 2)})(decoded)  # 16 x 16 x 256
 
-    decoded = DenseUpsampling(out_channels=256, filters=128, kernel_size=(3, 3),
-                              num_layers=2)(decoded)  # 16 x 16 x 256
+    # decoded = DenseUpsampling(out_channels=256, filters=128, kernel_size=(3, 3),
+    #                           num_layers=2)(decoded)  # 16 x 16 x 256
 
     decoded = DenseUpsampling(out_channels=128, filters=128, kernel_size=(3, 3),
                               first_kernel=(3, 6), first_stride=(2, 4),
@@ -124,20 +126,20 @@ def build_decoder():
 if __name__ == '__main__':
 
     num_epochs = 1000
-    batch_size = 5
+    batch_size = 12
 
     encoder, z_mean, z_log_var = build_encoder()
-    encoder_saver = WeightSaver(encoder, 'models/encoders/enc1')
+    encoder_saver = WeightSaver(encoder, 'models/encoders/enc5')
 
-    encoder.summary()
-    plot_model(encoder, 'model_plots/proto_enc4.png', show_shapes=True)
+#     encoder.summary()
+#     plot_model(encoder, 'model_plots/proto_enc6.png', show_shapes=True)
 
     decoder = build_decoder()
-    decoder_saver = WeightSaver(decoder, 'models/decoders/dec1')
+    decoder_saver = WeightSaver(decoder, 'models/decoders/dec5')
 
-    print('========================\n'*3)
-    decoder.summary()
-    plot_model(decoder, 'model_plots/proto_dec2.png', show_shapes=True)
+#     print('========================\n'*3)
+#     decoder.summary()
+#     plot_model(decoder, 'model_plots/proto_dec6.png', show_shapes=True)
 
     outs = decoder(encoder(spectral_in)[2])
     vae = Model(spectral_in, outs, name='sound_vae')
@@ -147,7 +149,7 @@ if __name__ == '__main__':
             reconstruction_loss = K.sum(mse(K.flatten(y_true), K.flatten(y_pred)) * 128 * 1024)
             kl_loss = 0.5 * (K.sum(K.exp(z_log_var) + K.square(z_mean) - 1 - z_log_var))
 
-            return 0.05*kl_loss + 10*reconstruction_loss
+            return 0.005*kl_loss + 10*reconstruction_loss
 
     vae.compile(optimizer='adam', loss=vae_loss)
 

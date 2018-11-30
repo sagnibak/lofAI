@@ -159,13 +159,13 @@ class WeightSaver(Callback):
 
     def __init__(self, model: Model, filepath: str):
         super().__init__()
-        self.model = model
+        self.model_ = model
         self.filepath = filepath
         self.best = np.Inf
 
     def on_epoch_end(self, epoch, logs=None):
         if logs['val_loss'] < self.best:
             save_path = self.filepath + f'_{epoch + 1:03d}_{logs["val_loss"]:.3f}.h5'
-            self.model.save_weights(save_path)
+            self.model_.save_weights(save_path)
             print(f'Saved weights at {save_path}')
             self.best = logs['val_loss']
