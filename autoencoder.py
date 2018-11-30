@@ -51,34 +51,34 @@ def build_encoder():
     encoded = DenseBlock(128, (3, 3), num_layers=3,
                          first_kernel=(3, 6), first_stride=(2, 4),
                          pool_func_args={'pool_size': (3, 6), 'strides': (2, 4)})(encoded)  # 16 x 16 x 256
-    # encoded = DenseBlock(256, (3, 3), num_layers=2, merge_func=Add)(encoded)
+    encoded = DenseBlock(256, (3, 3), num_layers=2, merge_func=Add)(encoded)
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (3, 3), 'strides': (2, 2)})(encoded)  # 8 x 8 x 512
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (3, 3), 'strides': (2, 2)})(encoded)  # 4 x 4 x 768
-    # encoded = DenseBlock(768, (2, 2), num_layers=3, merge_func=Add)(encoded)
+    encoded = DenseBlock(768, (2, 2), num_layers=3, merge_func=Add)(encoded)
 
     encoded = DenseBlock(256, (3, 3), num_layers=3, first_stride=(2, 2),
                          pool_func_args={'pool_size': (2, 2), 'strides': (2, 2)})(encoded)  # 2 x 2 x 1024
     encoded = DenseBlock(128, (1, 1), num_layers=2)(encoded)  # 2 x 2 x 1152
-    # encoded = ChannelShuffle(9)(encoded)
+    encoded = ChannelShuffle(9)(encoded)
     encoded = DenseBlock(128, (1, 1), num_layers=2)(encoded)  # 2 x 2 x 1280
-    # encoded = ChannelShuffle(10)(encoded)
+    encoded = ChannelShuffle(10)(encoded)
 
-    z_mean = GConv(1, 1280, 32, kernel_regularizer=l2())(encoded)
-    z_log_var = GConv(1, 1280, 32, kernel_regularizer=l2())(encoded)
+    z_mean = GConv(2, 1280, 320, kernel_regularizer=l2())(encoded)
+    z_log_var = GConv(2, 1280, 320, kernel_regularizer=l2())(encoded)
     z_sampled = Sampling('z_sampled')([z_mean, z_log_var])
 
     return Model(spectral_in, [z_mean, z_log_var, z_sampled], name='encoder'), z_mean, z_log_var
 
 
 def build_decoder():
-    z_sampled_in = Input(shape=(2, 2, 32), name='z_sampled_in')
+    z_sampled_in = Input(shape=(2, 2, 320), name='z_sampled_in')
 
-    decoded = GConv(1, 32, 1152, kernel_regularizer=l2())(z_sampled_in)
-    # decoded = ChannelShuffle(3)(decoded)
+    decoded = GConv(2, 320, 1152, kernel_regularizer=l2())(z_sampled_in)
+    decoded = ChannelShuffle(3)(decoded)
     decoded = LeakyReLU(0.4)(BatchNormalization()(decoded))
     decoded = GConv(2, 1152, 1024, kernel_regularizer=l2())(decoded)  # 2 x 2 x 1024
 
@@ -129,13 +129,15 @@ if __name__ == '__main__':
     batch_size = 12
 
     encoder, z_mean, z_log_var = build_encoder()
-    encoder_saver = WeightSaver(encoder, 'models/encoders/enc5')
+    encoder.load_weights('models/encoders/enc3_015_128340.020.h5', by_name=True)
+    encoder_saver = WeightSaver(encoder, 'models/encoders/enc6')
 
 #     encoder.summary()
 #     plot_model(encoder, 'model_plots/proto_enc6.png', show_shapes=True)
 
     decoder = build_decoder()
-    decoder_saver = WeightSaver(decoder, 'models/decoders/dec5')
+    decoder.load_weights('models/decoders/dec3_015_128340.020.h5', by_name=True)
+    decoder_saver = WeightSaver(decoder, 'models/decoders/dec6')
 
 #     print('========================\n'*3)
 #     decoder.summary()
